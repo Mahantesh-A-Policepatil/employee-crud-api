@@ -24,6 +24,11 @@ class Employee extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var $fillable array
+     */
     protected $fillable = [
     	'name', 'email', 'phone', 'designation'
 	];
