@@ -10,6 +10,12 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    /**
+     * register function
+     *
+     * @param Request $request
+     * @return void
+     */
     public function register(Request $request)
     {
         $request->validate([
@@ -37,6 +43,12 @@ class AuthController extends Controller
         ], 201);
     }
 
+    /**
+     * login function
+     *
+     * @param Request $request
+     * @return void
+     */
     public function login(Request $request)
     {
         $request->validate([
@@ -65,6 +77,12 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * logout function
+     *
+     * @param Request $request
+     * @return void
+     */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
@@ -72,6 +90,12 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logout successful']);
     }
 
+    /**
+     * user function
+     *
+     * @param Request $request
+     * @return void
+     */
     public function user(Request $request)
     {
         return $request->user();
