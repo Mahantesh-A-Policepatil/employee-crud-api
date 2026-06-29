@@ -34,7 +34,7 @@ class EmployeeController extends Controller
      */
     public function index(Request $request)
     {
-        $columns = ['id', 'name', 'email', 'phone', 'designation'];
+        $columns = ['id', 'department_name', 'name', 'email', 'phone', 'designation'];
 
         $length = $request->input('length');
         $start = $request->input('start');
@@ -43,19 +43,24 @@ class EmployeeController extends Controller
         $orderColumn = $columns[$orderColumnIndex] ?? 'id';
         $orderDir = $request->input('order.0.dir', 'asc');
 
-        $query = Employee::query();
+        $query = Employee::query()
+            ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
+            ->select('employees.*', 'departments.name as department_name');
 
         // Search
         if ($search) {
             $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%$search%")
-                  ->orWhere('email', 'like', "%$search%")
-                  ->orWhere('phone', 'like', "%$search%");
+                $q->where('employees.name', 'like', "%$search%")
+                  ->orWhere('employees.email', 'like', "%$search%")
+                  ->orWhere('employees.phone', 'like', "%$search%")
+                  ->orWhere('departments.name', 'like', "%$search%");
             });
         }
 
         $total = Employee::count();
         $filtered = $query->count();
+
+        $orderColumn = $orderColumn === 'department_name' ? 'departments.name' : 'employees.' . $orderColumn;
 
         $employees = $query->orderBy($orderColumn, $orderDir)
             ->offset($start)
@@ -90,12 +95,15 @@ class EmployeeController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|min:2|max:255',
+            'department_id' => 'required|exists:departments,id',
             'email' => 'required|email|unique:employees,email',
             'phone' => 'required|digits:10|unique:employees,phone',
             'designation' => 'required|string|min:2|max:255',
         ], [
             'name.required' => 'Name is required',
             'name.min' => 'Name must be at least 2 characters',
+            'department_id.required' => 'Department is required',
+            'department_id.exists' => 'Selected department is invalid',
             'email.required' => 'Email is required',
             'email.email' => 'Email must be a valid email address',
             'email.unique' => 'This email already exists',
@@ -149,12 +157,15 @@ class EmployeeController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|min:2|max:255',
+            'department_id' => 'required|exists:departments,id',
             'email' => 'required|email|unique:employees,email,' . $id,
             'phone' => 'required|digits:10|unique:employees,phone,' . $id,
             'designation' => 'required|string|min:2|max:255',
         ], [
             'name.required' => 'Name is required',
             'name.min' => 'Name must be at least 2 characters',
+            'department_id.required' => 'Department is required',
+            'department_id.exists' => 'Selected department is invalid',
             'email.required' => 'Email is required',
             'email.email' => 'Email must be a valid email address',
             'email.unique' => 'This email already exists',
