@@ -33,7 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/employees/{id}', [EmployeeController::class, 'update'])->middleware('permission:employees.update');
     Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->middleware('permission:employees.delete');
 
-    Route::get('/departments/options', [DepartmentController::class, 'options'])->middleware('permission:departments.view');
+    Route::get('/departments/options', [DepartmentController::class, 'options'])->middleware('permission:departments.view|employees.view');
     Route::get('/departments', [DepartmentController::class, 'index'])->middleware('permission:departments.view');
     Route::post('/departments', [DepartmentController::class, 'store'])->middleware('permission:departments.create');
     Route::get('/departments/{id}', [DepartmentController::class, 'show'])->middleware('permission:departments.view');
