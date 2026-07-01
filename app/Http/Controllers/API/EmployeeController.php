@@ -2,37 +2,59 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Models\Employee;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreEmployeeRequest;
+use App\Http\Requests\UpdateEmployeeRequest;
+use App\Repositories\EmployeeRepository;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
- * Employee API Controller
+ * EmployeeController
  *
  * Handles all RESTful API operations for employee management including
  * listing, creating, retrieving, updating, and deleting employees.
- * Implements server-side processing for DataTables and comprehensive validation.
+ * Implements DataTables server-side processing with search and sorting.
+ * Uses repository pattern for database operations and form requests for validation.
  *
  * @package App\Http\Controllers\API
  */
 class EmployeeController extends Controller
 {
     /**
+     * Employee repository instance for database operations.
+     *
+     * @var EmployeeRepository
+     */
+    private EmployeeRepository $employeeRepository;
+
+    /**
+     * Create a new EmployeeController instance.
+     *
+     * @param EmployeeRepository $employeeRepository The employee repository
+     */
+    public function __construct(EmployeeRepository $employeeRepository)
+    {
+        $this->employeeRepository = $employeeRepository;
+    }
+
+    /**
      * Display a paginated list of employees with search and sorting support.
      *
-     * This method implements server-side DataTables processing, supporting
-     * search functionality and custom column sorting.
+     * Implements server-side DataTables processing with support for
+     * search functionality and custom column sorting. Includes department
+     * information via left join.
      *
      * @param Request $request The HTTP request containing DataTables parameters
      *                          (length, start, search.value, order.0.column, order.0.dir, draw)
      *
-     * @return \Illuminate\Http\JsonResponse JSON response containing:
+     * @return JsonResponse JSON response with DataTables format containing:
      *         - draw: DataTables draw counter
      *         - recordsTotal: Total number of employees in database
      *         - recordsFiltered: Number of employees matching search criteria
-     *         - data: Array of employee records
+     *         - data: Array of employee records with department information
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $columns = ['id', 'department_name', 'name', 'email', 'phone', 'designation'];
 
@@ -43,35 +65,19 @@ class EmployeeController extends Controller
         $orderColumn = $columns[$orderColumnIndex] ?? 'id';
         $orderDir = $request->input('order.0.dir', 'asc');
 
-        $query = Employee::query()
-            ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
-            ->select('employees.*', 'departments.name as department_name');
-
-        // Search
-        if ($search) {
-            $query->where(function($q) use ($search) {
-                $q->where('employees.name', 'like', "%$search%")
-                  ->orWhere('employees.email', 'like', "%$search%")
-                  ->orWhere('employees.phone', 'like', "%$search%")
-                  ->orWhere('departments.name', 'like', "%$search%");
-            });
-        }
-
-        $total = Employee::count();
-        $filtered = $query->count();
-
-        $orderColumn = $orderColumn === 'department_name' ? 'departments.name' : 'employees.' . $orderColumn;
-
-        $employees = $query->orderBy($orderColumn, $orderDir)
-            ->offset($start)
-            ->limit($length)
-            ->get();
+        $result = $this->employeeRepository->paginate(
+            $length,
+            $start,
+            $search,
+            $orderColumn,
+            $orderDir
+        );
 
         return response()->json([
-            "draw" => intval($request->input('draw')),
-            "recordsTotal" => $total,
-            "recordsFiltered" => $filtered,
-            "data" => $employees
+            'draw' => intval($request->input('draw')),
+            'recordsTotal' => $result['total'],
+            'recordsFiltered' => $result['filtered'],
+            'data' => $result['data'],
         ]);
     }
 
@@ -81,40 +87,20 @@ class EmployeeController extends Controller
      * Validates and creates a new employee with the provided data.
      * Email and phone number must be unique in the database.
      *
-     * @param Request $request The HTTP request containing employee data
-     *                          - name (required): String between 2-255 characters
-     *                          - email (required): Valid unique email address
-     *                          - phone (required): Unique 10-digit phone number
-     *                          - designation (required): String between 2-255 characters
+     * @param StoreEmployeeRequest $request The validated store request containing:
+     *                                       - name: Employee's full name
+     *                                       - email: Unique email address
+     *                                       - phone: Unique 10-digit phone number
+     *                                       - designation: Job title/designation
+     *                                       - department_id: Valid department reference
      *
-     * @return Employee The newly created employee record
+     * @return mixed The newly created employee record
      *
-     * @throws \Illuminate\Validation\ValidationException If validation fails (422 response)
+     * @throws \Illuminate\Validation\ValidationException If validation fails
      */
-    public function store(Request $request)
+    public function store(StoreEmployeeRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|min:2|max:255',
-            'department_id' => 'required|exists:departments,id',
-            'email' => 'required|email|unique:employees,email',
-            'phone' => 'required|digits:10|unique:employees,phone',
-            'designation' => 'required|string|min:2|max:255',
-        ], [
-            'name.required' => 'Name is required',
-            'name.min' => 'Name must be at least 2 characters',
-            'department_id.required' => 'Department is required',
-            'department_id.exists' => 'Selected department is invalid',
-            'email.required' => 'Email is required',
-            'email.email' => 'Email must be a valid email address',
-            'email.unique' => 'This email already exists',
-            'phone.required' => 'Phone number is required',
-            'phone.digits' => 'Phone number must be exactly 10 digits',
-            'phone.unique' => 'This phone number already exists',
-            'designation.required' => 'Designation is required',
-            'designation.min' => 'Designation must be at least 2 characters',
-        ]);
-
-        return Employee::create($validated);
+        return $this->employeeRepository->create($request->validated());
     }
 
     /**
@@ -124,60 +110,37 @@ class EmployeeController extends Controller
      *
      * @param int $id The employee ID to retrieve
      *
-     * @return Employee The employee record with the specified ID
+     * @return mixed The employee record with the specified ID
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If employee not found (404 response)
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If employee not found
      */
     public function show($id)
     {
-        return Employee::findOrFail($id);
+        return $this->employeeRepository->findOrFail($id);
     }
 
     /**
      * Update an existing employee record.
      *
-     * Validates and updates an employee's information. Email and phone number
-     * must remain unique (excluding the current employee's existing values).
+     * Validates and updates an employee's information. Email and phone
+     * number must remain unique (excluding current employee's values).
      *
-     * @param Request $request The HTTP request containing updated employee data
-     *                          - name (required): String between 2-255 characters
-     *                          - email (required): Valid unique email address (excluding current record)
-     *                          - phone (required): Unique 10-digit phone number (excluding current record)
-     *                          - designation (required): String between 2-255 characters
+     * @param UpdateEmployeeRequest $request The validated update request containing:
+     *                                        - name: Updated employee name
+     *                                        - email: Updated email (must be unique or current)
+     *                                        - phone: Updated phone (must be unique or current)
+     *                                        - designation: Updated job title
+     *                                        - department_id: Updated department reference
      * @param int $id The employee ID to update
      *
-     * @return Employee The updated employee record
+     * @return mixed The updated employee record
      *
-     * @throws \Illuminate\Validation\ValidationException If validation fails (422 response)
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If employee not found (404 response)
+     * @throws \Illuminate\Validation\ValidationException If validation fails
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If employee not found
      */
-    public function update(Request $request, $id)
+    public function update(UpdateEmployeeRequest $request, $id)
     {
-        $emp = Employee::findOrFail($id);
-
-        $validated = $request->validate([
-            'name' => 'required|string|min:2|max:255',
-            'department_id' => 'required|exists:departments,id',
-            'email' => 'required|email|unique:employees,email,' . $id,
-            'phone' => 'required|digits:10|unique:employees,phone,' . $id,
-            'designation' => 'required|string|min:2|max:255',
-        ], [
-            'name.required' => 'Name is required',
-            'name.min' => 'Name must be at least 2 characters',
-            'department_id.required' => 'Department is required',
-            'department_id.exists' => 'Selected department is invalid',
-            'email.required' => 'Email is required',
-            'email.email' => 'Email must be a valid email address',
-            'email.unique' => 'This email already exists',
-            'phone.required' => 'Phone number is required',
-            'phone.digits' => 'Phone number must be exactly 10 digits',
-            'phone.unique' => 'This phone number already exists',
-            'designation.required' => 'Designation is required',
-            'designation.min' => 'Designation must be at least 2 characters',
-        ]);
-
-        $emp->update($validated);
-        return $emp;
+        return $this->employeeRepository->update($id, $request->validated());
     }
 
     /**
@@ -187,11 +150,14 @@ class EmployeeController extends Controller
      *
      * @param int $id The employee ID to delete
      *
-     * @return \Illuminate\Http\JsonResponse JSON response with deletion confirmation message
+     * @return JsonResponse Deletion confirmation message
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If employee not found
      */
-    public function destroy($id)
+    public function destroy($id): JsonResponse
     {
-        Employee::destroy($id);
+        $this->employeeRepository->delete($id);
+
         return response()->json(['message' => 'Deleted']);
     }
 }

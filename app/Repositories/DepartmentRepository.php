@@ -1,0 +1,99 @@
+<?php
+
+namespace App\Repositories;
+
+use App\Models\Department;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * DepartmentRepository
+ *
+ * Repository for managing Department model database operations.
+ * Provides department-specific query methods and data access layer.
+ *
+ * @package App\Repositories
+ */
+class DepartmentRepository extends BaseRepository
+{
+    /**
+     * Get the Department model instance.
+     *
+     * @return Model The Department model
+     */
+    protected function getModel(): Model
+    {
+        return app(Department::class);
+    }
+
+    /**
+     * Search departments by name and/or description.
+     *
+     * @param string $search The search term
+     *
+     * @return \Illuminate\Database\Eloquent\Collection Departments matching search criteria
+     */
+    public function search(string $search)
+    {
+        return $this->query()
+            ->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                    ->orWhere('description', 'like', "%$search%");
+            })
+            ->get();
+    }
+
+    /**
+     * Get departments paginated with search and sorting.
+     *
+     * @param int $length Number of records per page
+     * @param int $start Starting offset
+     * @param string|null $search Search term
+     * @param string $orderColumn Column to order by
+     * @param string $orderDir Order direction (asc/desc)
+     *
+     * @return array Array containing departments and count information
+     */
+    public function paginate(
+        int $length,
+        int $start,
+        ?string $search = null,
+        string $orderColumn = 'id',
+        string $orderDir = 'asc'
+    ): array {
+        $query = $this->query();
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                    ->orWhere('description', 'like', "%$search%");
+            });
+        }
+
+        $total = $this->model->count();
+        $filtered = $query->count();
+
+        $departments = $query
+            ->orderBy($orderColumn, $orderDir)
+            ->offset($start)
+            ->limit($length)
+            ->get();
+
+        return [
+            'total' => $total,
+            'filtered' => $filtered,
+            'data' => $departments,
+        ];
+    }
+
+    /**
+     * Get all departments as options (id as value, name as label).
+     *
+     * @return \Illuminate\Database\Eloquent\Collection Options formatted collection
+     */
+    public function getOptions()
+    {
+        return $this->query()
+            ->orderBy('name')
+            ->get(['id as value', 'name as label']);
+    }
+}

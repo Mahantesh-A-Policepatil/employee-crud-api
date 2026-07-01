@@ -3,12 +3,56 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StorePermissionRequest;
+use App\Http\Requests\UpdatePermissionRequest;
+use App\Repositories\PermissionRepository;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Spatie\Permission\Models\Permission;
 
+/**
+ * PermissionController
+ *
+ * Handles all RESTful API operations for permission management.
+ * Implements DataTables server-side processing with search and sorting.
+ * Uses repository pattern for database operations and form requests for validation.
+ *
+ * @package App\Http\Controllers\API
+ */
 class PermissionController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Permission repository instance for database operations.
+     *
+     * @var PermissionRepository
+     */
+    private PermissionRepository $permissionRepository;
+
+    /**
+     * Create a new PermissionController instance.
+     *
+     * @param PermissionRepository $permissionRepository The permission repository
+     */
+    public function __construct(PermissionRepository $permissionRepository)
+    {
+        $this->permissionRepository = $permissionRepository;
+    }
+
+    /**
+     * Display a paginated list of permissions with search and sorting.
+     *
+     * Implements server-side DataTables processing with support for
+     * search functionality and custom column sorting.
+     *
+     * @param Request $request The HTTP request containing DataTables parameters
+     *                          (length, start, search.value, order.0.column, order.0.dir, draw)
+     *
+     * @return JsonResponse JSON response with DataTables format containing:
+     *         - draw: DataTables draw counter
+     *         - recordsTotal: Total number of permissions
+     *         - recordsFiltered: Number of permissions matching search
+     *         - data: Array of permission records
+     */
+    public function index(Request $request): JsonResponse
     {
         $columns = ['id', 'name', 'guard_name'];
 
@@ -19,79 +63,107 @@ class PermissionController extends Controller
         $orderColumn = $columns[$orderColumnIndex] ?? 'id';
         $orderDir = $request->input('order.0.dir', 'asc');
 
-        $query = Permission::query();
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%$search%")
-                    ->orWhere('guard_name', 'like', "%$search%");
-            });
-        }
-
-        $total = Permission::count();
-        $filtered = $query->count();
-
-        $permissions = $query->orderBy($orderColumn, $orderDir)
-            ->offset($start)
-            ->limit($length)
-            ->get();
+        $result = $this->permissionRepository->paginate(
+            $length,
+            $start,
+            $search,
+            $orderColumn,
+            $orderDir
+        );
 
         return response()->json([
             'draw' => intval($request->input('draw')),
-            'recordsTotal' => $total,
-            'recordsFiltered' => $filtered,
-            'data' => $permissions,
+            'recordsTotal' => $result['total'],
+            'recordsFiltered' => $result['filtered'],
+            'data' => $result['data'],
         ]);
     }
 
+    /**
+     * Get all permissions as options for dropdowns.
+     *
+     * Returns permissions formatted as options with id as value and name as label.
+     *
+     * @return mixed Collection of permission options
+     */
     public function options()
     {
-        return Permission::orderBy('name')
-            ->get(['id as value', 'name as label']);
+        return $this->permissionRepository->getOptions();
     }
 
-    public function store(Request $request)
+    /**
+     * Create a new permission record.
+     *
+     * Validates and creates a new permission with the provided data.
+     *
+     * @param StorePermissionRequest $request The validated store request containing:
+     *                                         - name: Permission name (unique)
+     *
+     * @return mixed The newly created permission record
+     *
+     * @throws \Illuminate\Validation\ValidationException If validation fails
+     */
+    public function store(StorePermissionRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|min:2|max:255|unique:permissions,name',
-        ], [
-            'name.required' => 'Permission name is required',
-            'name.unique' => 'This permission already exists',
-        ]);
+        $validated = $request->validated();
 
-        return Permission::create([
+        return $this->permissionRepository->create([
             'name' => $validated['name'],
             'guard_name' => 'web',
         ]);
     }
 
+    /**
+     * Retrieve a single permission by ID.
+     *
+     * @param int $id The permission ID to retrieve
+     *
+     * @return mixed The permission record
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If not found
+     */
     public function show($id)
     {
-        return Permission::findOrFail($id);
+        return $this->permissionRepository->findOrFail($id);
     }
 
-    public function update(Request $request, $id)
+    /**
+     * Update an existing permission record.
+     *
+     * Validates and updates a permission's information.
+     *
+     * @param UpdatePermissionRequest $request The validated update request containing:
+     *                                          - name: Updated permission name (must be unique)
+     * @param int $id The permission ID to update
+     *
+     * @return mixed The updated permission record
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If not found
+     */
+    public function update(UpdatePermissionRequest $request, $id)
     {
-        $permission = Permission::findOrFail($id);
+        $validated = $request->validated();
 
-        $validated = $request->validate([
-            'name' => 'required|string|min:2|max:255|unique:permissions,name,' . $id,
-        ], [
-            'name.required' => 'Permission name is required',
-            'name.unique' => 'This permission already exists',
-        ]);
-
-        $permission->update([
+        return $this->permissionRepository->update($id, [
             'name' => $validated['name'],
             'guard_name' => 'web',
         ]);
-
-        return $permission;
     }
 
-    public function destroy($id)
+    /**
+     * Delete a permission record.
+     *
+     * Removes a permission from the database by ID.
+     *
+     * @param int $id The permission ID to delete
+     *
+     * @return JsonResponse Deletion confirmation message
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If not found
+     */
+    public function destroy($id): JsonResponse
     {
-        Permission::destroy($id);
+        $this->permissionRepository->delete($id);
 
         return response()->json(['message' => 'Deleted']);
     }

@@ -3,13 +3,60 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreRoleRequest;
+use App\Http\Requests\UpdateRoleRequest;
+use App\Repositories\PermissionRepository;
+use App\Repositories\RoleRepository;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 
+/**
+ * RoleController
+ *
+ * Handles all RESTful API operations for role management.
+ * Implements DataTables server-side processing with role and permission association.
+ * Uses repository pattern for database operations and form requests for validation.
+ *
+ * @package App\Http\Controllers\API
+ */
 class RoleController extends Controller
 {
-    private function formatRole(Role $role)
+    /**
+     * Role repository instance for database operations.
+     *
+     * @var RoleRepository
+     */
+    private RoleRepository $roleRepository;
+
+    /**
+     * Permission repository instance for permission operations.
+     *
+     * @var PermissionRepository
+     */
+    private PermissionRepository $permissionRepository;
+
+    /**
+     * Create a new RoleController instance.
+     *
+     * @param RoleRepository $roleRepository The role repository
+     * @param PermissionRepository $permissionRepository The permission repository
+     */
+    public function __construct(RoleRepository $roleRepository, PermissionRepository $permissionRepository)
+    {
+        $this->roleRepository = $roleRepository;
+        $this->permissionRepository = $permissionRepository;
+    }
+
+    /**
+     * Format role response with permissions.
+     *
+     * Loads role permissions and returns formatted array suitable for API responses.
+     *
+     * @param mixed $role The role model instance
+     *
+     * @return array Role data with associated permissions
+     */
+    private function formatRole($role): array
     {
         $role->loadMissing('permissions');
         $permissionNames = $role->permissions->pluck('name')->values();
@@ -23,7 +70,21 @@ class RoleController extends Controller
         ];
     }
 
-    public function index(Request $request)
+    /**
+     * Display a paginated list of roles with search and sorting.
+     *
+     * Implements server-side DataTables processing with role permissions loaded.
+     *
+     * @param Request $request The HTTP request containing DataTables parameters
+     *                          (length, start, search.value, order.0.column, order.0.dir, draw)
+     *
+     * @return JsonResponse JSON response with DataTables format containing:
+     *         - draw: DataTables draw counter
+     *         - recordsTotal: Total number of roles
+     *         - recordsFiltered: Number of roles matching search
+     *         - data: Array of formatted role records
+     */
+    public function index(Request $request): JsonResponse
     {
         $columns = ['id', 'name', 'guard_name'];
 
@@ -34,91 +95,126 @@ class RoleController extends Controller
         $orderColumn = $columns[$orderColumnIndex] ?? 'id';
         $orderDir = $request->input('order.0.dir', 'asc');
 
-        $query = Role::with('permissions');
+        $result = $this->roleRepository->paginate(
+            $length,
+            $start,
+            $search,
+            $orderColumn,
+            $orderDir
+        );
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%$search%")
-                    ->orWhere('guard_name', 'like', "%$search%");
-            });
-        }
-
-        $total = Role::count();
-        $filtered = $query->count();
-
-        $roles = $query->orderBy($orderColumn, $orderDir)
-            ->offset($start)
-            ->limit($length)
-            ->get()
-            ->map(fn (Role $role) => $this->formatRole($role));
+        $formattedData = collect($result['data'])->map(fn ($role) => $this->formatRole($role))->all();
 
         return response()->json([
             'draw' => intval($request->input('draw')),
-            'recordsTotal' => $total,
-            'recordsFiltered' => $filtered,
-            'data' => $roles,
+            'recordsTotal' => $result['total'],
+            'recordsFiltered' => $result['filtered'],
+            'data' => $formattedData,
         ]);
     }
 
-    public function store(Request $request)
+    /**
+     * Create a new role record.
+     *
+     * Validates and creates a new role with the provided data and
+     * syncs associated permissions.
+     *
+     * @param StoreRoleRequest $request The validated store request containing:
+     *                                   - name: Role name (unique)
+     *                                   - permissions: Optional array of permission names
+     *
+     * @return array Formatted role data with permissions
+     *
+     * @throws \Illuminate\Validation\ValidationException If validation fails
+     */
+    public function store(StoreRoleRequest $request): array
     {
-        $validated = $request->validate([
-            'name' => 'required|string|min:2|max:255|unique:roles,name',
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,name',
-        ], [
-            'name.required' => 'Role name is required',
-            'name.unique' => 'This role already exists',
-        ]);
+        $validated = $request->validated();
 
-        $role = Role::create([
+        $role = $this->roleRepository->create([
             'name' => $validated['name'],
             'guard_name' => 'web',
         ]);
 
-        $role->syncPermissions(Permission::whereIn('name', $validated['permissions'] ?? [])->get());
+        if (!empty($validated['permissions'])) {
+            $permissions = $this->permissionRepository->findByNames($validated['permissions']);
+            $role->syncPermissions($permissions);
+        }
 
         return $this->formatRole($role);
     }
 
-    public function show($id)
+    /**
+     * Retrieve a single role by ID.
+     *
+     * @param int $id The role ID to retrieve
+     *
+     * @return array Formatted role data with permissions
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If not found
+     */
+    public function show($id): array
     {
-        return $this->formatRole(Role::with('permissions')->findOrFail($id));
+        $role = $this->roleRepository->findWithPermissions($id);
+
+        return $this->formatRole($role);
     }
 
-    public function update(Request $request, $id)
+    /**
+     * Update an existing role record.
+     *
+     * Validates and updates a role's information and syncs permissions.
+     *
+     * @param UpdateRoleRequest $request The validated update request containing:
+     *                                    - name: Updated role name (must be unique)
+     *                                    - permissions: Optional array of permission names
+     * @param int $id The role ID to update
+     *
+     * @return array Formatted role data with permissions
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If not found
+     */
+    public function update(UpdateRoleRequest $request, $id): array
     {
-        $role = Role::findOrFail($id);
+        $validated = $request->validated();
 
-        $validated = $request->validate([
-            'name' => 'required|string|min:2|max:255|unique:roles,name,' . $id,
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,name',
-        ], [
-            'name.required' => 'Role name is required',
-            'name.unique' => 'This role already exists',
-        ]);
-
-        $role->update([
+        $role = $this->roleRepository->update($id, [
             'name' => $validated['name'],
             'guard_name' => 'web',
         ]);
-        $role->syncPermissions(Permission::whereIn('name', $validated['permissions'] ?? [])->get());
+
+        if (!empty($validated['permissions'])) {
+            $permissions = $this->permissionRepository->findByNames($validated['permissions']);
+            $role->syncPermissions($permissions);
+        } else {
+            $role->syncPermissions([]);
+        }
 
         return $this->formatRole($role);
     }
 
-    public function destroy($id)
+    /**
+     * Delete a role record.
+     *
+     * Removes a role from the database. System roles (admin, non-admin) cannot be deleted.
+     *
+     * @param int $id The role ID to delete
+     *
+     * @return JsonResponse Deletion confirmation or error message
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If not found
+     */
+    public function destroy($id): JsonResponse
     {
-        $role = Role::findOrFail($id);
+        $role = $this->roleRepository->findOrFail($id);
 
-        if (in_array($role->name, ['admin', 'non-admin'])) {
+        if ($this->roleRepository->isSystemRole($role->name)) {
             return response()->json([
                 'message' => 'Default roles cannot be deleted.',
             ], 422);
         }
 
-        $role->delete();
+        $this->roleRepository->delete($id);
 
         return response()->json(['message' => 'Deleted']);
     }

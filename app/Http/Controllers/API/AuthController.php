@@ -3,16 +3,64 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\UpdateUserRequest;
+use App\Repositories\RoleRepository;
+use App\Repositories\UserRepository;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Spatie\Permission\Models\Role;
 
+/**
+ * AuthController
+ *
+ * Handles all authentication operations including registration, login,
+ * logout, and user profile management. Uses repository pattern for
+ * database operations and form requests for validation.
+ *
+ * @package App\Http\Controllers\API
+ */
 class AuthController extends Controller
 {
-    private function userPayload(User $user)
+    /**
+     * User repository instance for database operations.
+     *
+     * @var UserRepository
+     */
+    private UserRepository $userRepository;
+
+    /**
+     * Role repository instance for role operations.
+     *
+     * @var RoleRepository
+     */
+    private RoleRepository $roleRepository;
+
+    /**
+     * Create a new AuthController instance.
+     *
+     * @param UserRepository $userRepository The user repository
+     * @param RoleRepository $roleRepository The role repository
+     */
+    public function __construct(UserRepository $userRepository, RoleRepository $roleRepository)
+    {
+        $this->userRepository = $userRepository;
+        $this->roleRepository = $roleRepository;
+    }
+
+    /**
+     * Format user response payload with roles and permissions.
+     *
+     * Loads all related roles and permissions for a user and returns
+     * a formatted array suitable for API responses.
+     *
+     * @param mixed $user The user model instance
+     *
+     * @return array User data with roles and permissions
+     */
+    private function userPayload($user): array
     {
         $user->loadMissing('roles', 'permissions');
 
@@ -26,28 +74,25 @@ class AuthController extends Controller
     }
 
     /**
-     * register function
+     * Handle user registration.
      *
-     * @param Request $request
-     * @return void
+     * Creates a new user account with validated credentials and assigns
+     * the default 'non-admin' role. Returns authentication token.
+     *
+     * @param RegisterRequest $request The validated registration request
+     *
+     * @return JsonResponse Registration success response with token and user data
      */
-    public function register(Request $request)
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        $user = $this->userRepository->create([
+            'name' => $request->validated()['name'],
+            'email' => $request->validated()['email'],
+            'password' => Hash::make($request->validated()['password']),
         ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
-        $user->assignRole(Role::firstOrCreate([
-            'name' => 'non-admin',
-            'guard_name' => 'web',
-        ]));
+        $nonAdminRole = $this->roleRepository->firstOrCreate('non-admin', 'web');
+        $user->assignRole($nonAdminRole);
 
         $token = $user->createToken('auth-token')->plainTextToken;
 
@@ -59,21 +104,23 @@ class AuthController extends Controller
     }
 
     /**
-     * login function
+     * Handle user login.
      *
-     * @param Request $request
-     * @return void
+     * Authenticates user credentials and returns authentication token
+     * if credentials are valid. Throws ValidationException on failure.
+     *
+     * @param LoginRequest $request The validated login request
+     *
+     * @return JsonResponse Login success response with token and user data
+     *
+     * @throws ValidationException If credentials are incorrect
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request): JsonResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
-        ]);
+        $validated = $request->validated();
+        $user = $this->userRepository->findByEmail($validated['email']);
 
-        $user = User::where('email', $request->email)->first();
-
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if (!$user || !Hash::check($validated['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
@@ -89,12 +136,15 @@ class AuthController extends Controller
     }
 
     /**
-     * logout function
+     * Handle user logout.
      *
-     * @param Request $request
-     * @return void
+     * Revokes the current API token, effectively logging out the user.
+     *
+     * @param Request $request The HTTP request
+     *
+     * @return JsonResponse Logout success response
      */
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
 
@@ -102,40 +152,44 @@ class AuthController extends Controller
     }
 
     /**
-     * user function
+     * Retrieve current authenticated user information.
      *
-     * @param Request $request
-     * @return void
+     * Returns the currently authenticated user with their roles and permissions.
+     *
+     * @param Request $request The HTTP request
+     *
+     * @return array User data with roles and permissions
      */
-    public function user(Request $request)
+    public function user(Request $request): array
     {
         return $this->userPayload($request->user());
     }
 
     /**
-     * updateUser function
+     * Update current user's profile information.
      *
-     * @param Request $request
-     * @return void
+     * Updates user's name, email, and optionally password.
+     * Email must remain unique and password must be confirmed if provided.
+     *
+     * @param UpdateUserRequest $request The validated update request
+     *
+     * @return JsonResponse User update success response
      */
-    public function updateUser(Request $request)
+    public function updateUser(UpdateUserRequest $request): JsonResponse
     {
         $user = $request->user();
+        $validated = $request->validated();
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
-        ]);
+        $updateData = [
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+        ];
 
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
-
-        if (! empty($validated['password'])) {
-            $user->password = Hash::make($validated['password']);
+        if (!empty($validated['password'])) {
+            $updateData['password'] = Hash::make($validated['password']);
         }
 
-        $user->save();
+        $user = $this->userRepository->update($user->id, $updateData);
 
         return response()->json([
             'message' => 'User information updated successfully.',
