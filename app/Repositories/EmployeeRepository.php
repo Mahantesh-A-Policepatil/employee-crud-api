@@ -45,13 +45,15 @@ class EmployeeRepository extends BaseRepository
     ): array {
         $query = $this->query()
             ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
-            ->select('employees.*', 'departments.name as department_name');
+            ->leftJoin('projects', 'employees.project_id', '=', 'projects.id')
+            ->select('employees.*', 'departments.name as department_name', 'projects.name as project_name');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('employees.name', 'like', "%$search%")
                     ->orWhere('employees.email', 'like', "%$search%")
                     ->orWhere('employees.phone', 'like', "%$search%")
+                    ->orWhere('projects.name', 'like', "%$search%")
                     ->orWhere('departments.name', 'like', "%$search%");
             });
         }
@@ -59,7 +61,13 @@ class EmployeeRepository extends BaseRepository
         $total = $this->model->count();
         $filtered = $query->count();
 
-        $orderColumn = $orderColumn === 'department_name' ? 'departments.name' : 'employees.' . $orderColumn;
+        if ($orderColumn === 'department_name') {
+            $orderColumn = 'departments.name';
+        } elseif ($orderColumn === 'project_name') {
+            $orderColumn = 'projects.name';
+        } else {
+            $orderColumn = 'employees.' . $orderColumn;
+        }
 
         $employees = $query
             ->orderBy($orderColumn, $orderDir)
@@ -96,5 +104,23 @@ class EmployeeRepository extends BaseRepository
     public function findByPhone(string $phone)
     {
         return $this->query()->where('phone', $phone)->first();
+    }
+
+    /**
+     * Get employees as options for project assignment.
+     */
+    public function options(string $assignment = 'project')
+    {
+        $relation = $assignment === 'department' ? 'department' : 'project';
+
+        return $this->query()
+            ->with("{$relation}:id,name")
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'project_id', 'department_id'])
+            ->map(fn (Employee $employee) => [
+                'value' => $employee->id,
+                'label' => "{$employee->name} ({$employee->email})",
+                'description' => $employee->{$relation}?->name,
+            ]);
     }
 }

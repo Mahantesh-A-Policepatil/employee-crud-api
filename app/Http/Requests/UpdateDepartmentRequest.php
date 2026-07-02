@@ -47,6 +47,8 @@ class UpdateDepartmentRequest extends FormRequest
                 Rule::unique('departments', 'name')->ignore($departmentId),
             ],
             'description' => 'nullable|string|max:500',
+            'employee_ids' => 'array',
+            'employee_ids.*' => 'integer|distinct|exists:employees,id',
         ];
     }
 

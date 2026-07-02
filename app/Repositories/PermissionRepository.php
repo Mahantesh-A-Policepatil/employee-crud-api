@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 
 /**
@@ -78,6 +79,44 @@ class PermissionRepository extends BaseRepository
         return $this->query()
             ->orderBy('name')
             ->get(['id as value', 'name as label']);
+    }
+
+    /**
+     * Get permissions grouped by resource for role assignment checkboxes.
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    public function getGroupedOptions()
+    {
+        $actionLabels = [
+            'view' => 'Read',
+            'create' => 'Create',
+            'update' => 'Update',
+            'delete' => 'Delete',
+            'manage' => 'Create / Update / Delete',
+        ];
+        $actionOrder = array_flip(array_keys($actionLabels));
+
+        return $this->query()
+            ->orderBy('name')
+            ->pluck('name')
+            ->groupBy(fn ($name) => Str::before($name, '.'))
+            ->map(function ($permissions, $resource) use ($actionLabels, $actionOrder) {
+                return [
+                    'label' => Str::headline($resource),
+                    'options' => $permissions
+                        ->sortBy(fn ($permission) => $actionOrder[Str::after($permission, '.')] ?? PHP_INT_MAX)
+                        ->map(function ($permission) use ($actionLabels) {
+                        $action = Str::after($permission, '.');
+
+                        return [
+                            'value' => $permission,
+                            'label' => $actionLabels[$action] ?? Str::headline($action),
+                        ];
+                    })->values(),
+                ];
+            })
+            ->values();
     }
 
     /**

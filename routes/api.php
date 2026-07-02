@@ -8,6 +8,7 @@ use App\Http\Controllers\API\DepartmentController;
 use App\Http\Controllers\API\PermissionController;
 use App\Http\Controllers\API\RoleController;
 use App\Http\Controllers\API\UserRoleController;
+use App\Http\Controllers\API\ProjectController;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,10 +29,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user', [AuthController::class, 'updateUser']);
 
     Route::get('/employees', [EmployeeController::class, 'index'])->middleware('permission:employees.view');
+    Route::get('/employees/options', [EmployeeController::class, 'options'])->middleware('permission:projects.create|projects.update');
+    Route::get('/employees/department-options', [EmployeeController::class, 'departmentOptions'])->middleware('permission:departments.create|departments.update');
     Route::post('/employees', [EmployeeController::class, 'store'])->middleware('permission:employees.create');
     Route::get('/employees/{id}', [EmployeeController::class, 'show'])->middleware('permission:employees.view');
     Route::put('/employees/{id}', [EmployeeController::class, 'update'])->middleware('permission:employees.update');
     Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->middleware('permission:employees.delete');
+
+    Route::get('/projects/options', [ProjectController::class, 'options'])->middleware('permission:projects.view|employees.view');
+    Route::get('/projects', [ProjectController::class, 'index'])->middleware('permission:projects.view');
+    Route::post('/projects', [ProjectController::class, 'store'])->middleware('permission:projects.create');
+    Route::get('/projects/{id}', [ProjectController::class, 'show'])->middleware('permission:projects.view');
+    Route::put('/projects/{id}', [ProjectController::class, 'update'])->middleware('permission:projects.update');
+    Route::delete('/projects/{id}', [ProjectController::class, 'destroy'])->middleware('permission:projects.delete');
 
     Route::get('/departments/options', [DepartmentController::class, 'options'])->middleware('permission:departments.view|employees.view');
     Route::get('/departments', [DepartmentController::class, 'index'])->middleware('permission:departments.view');
@@ -41,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/departments/{id}', [DepartmentController::class, 'destroy'])->middleware('permission:departments.delete');
 
     Route::get('/permissions/options', [PermissionController::class, 'options'])->middleware('permission:permissions.view|roles.manage');
+    Route::get('/permissions/grouped-options', [PermissionController::class, 'groupedOptions'])->middleware('permission:roles.manage');
     Route::get('/permissions', [PermissionController::class, 'index'])->middleware('permission:permissions.view');
     Route::post('/permissions', [PermissionController::class, 'store'])->middleware('permission:permissions.manage');
     Route::get('/permissions/{id}', [PermissionController::class, 'show'])->middleware('permission:permissions.view');

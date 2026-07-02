@@ -56,7 +56,7 @@ class EmployeeController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $columns = ['id', 'department_name', 'name', 'email', 'phone', 'designation'];
+        $columns = ['id', 'project_name', 'department_name', 'name', 'email', 'phone', 'designation'];
 
         $length = $request->input('length');
         $start = $request->input('start');
@@ -79,6 +79,22 @@ class EmployeeController extends Controller
             'recordsFiltered' => $result['filtered'],
             'data' => $result['data'],
         ]);
+    }
+
+    /**
+     * Get all employees as project-assignment options.
+     */
+    public function options(): JsonResponse
+    {
+        return response()->json($this->employeeRepository->options());
+    }
+
+    /**
+     * Get all employees as department-assignment options.
+     */
+    public function departmentOptions(): JsonResponse
+    {
+        return response()->json($this->employeeRepository->options('department'));
     }
 
     /**

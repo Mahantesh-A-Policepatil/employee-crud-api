@@ -22,7 +22,7 @@ return new class extends Migration
 
         Schema::create('employees', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('department_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('department_id')->nullable()->constrained()->nullOnDelete();
             $table->string('name');
             $table->string('email')->unique();
             $table->string('phone')->nullable();

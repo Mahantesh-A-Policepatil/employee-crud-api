@@ -54,7 +54,7 @@ class DepartmentController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $columns = ['id', 'name', 'description'];
+        $columns = [null, 'id', 'name', 'description', 'employees_count'];
 
         $length = $request->input('length');
         $start = $request->input('start');
@@ -105,7 +105,7 @@ class DepartmentController extends Controller
      */
     public function store(StoreDepartmentRequest $request)
     {
-        return $this->departmentRepository->create($request->validated());
+        return $this->departmentRepository->createWithEmployees($request->validated());
     }
 
     /**
@@ -119,7 +119,7 @@ class DepartmentController extends Controller
      */
     public function show($id)
     {
-        return $this->departmentRepository->findOrFail($id);
+        return $this->departmentRepository->findWithEmployees($id);
     }
 
     /**
@@ -137,7 +137,7 @@ class DepartmentController extends Controller
      */
     public function update(UpdateDepartmentRequest $request, $id)
     {
-        return $this->departmentRepository->update($id, $request->validated());
+        return $this->departmentRepository->updateWithEmployees($id, $request->validated());
     }
 
     /**

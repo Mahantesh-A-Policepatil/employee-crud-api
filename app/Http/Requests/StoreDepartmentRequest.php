@@ -38,6 +38,8 @@ class StoreDepartmentRequest extends FormRequest
         return [
             'name' => 'required|string|min:2|max:255|unique:departments,name',
             'description' => 'nullable|string|max:500',
+            'employee_ids' => 'array',
+            'employee_ids.*' => 'integer|distinct|exists:employees,id',
         ];
     }
 

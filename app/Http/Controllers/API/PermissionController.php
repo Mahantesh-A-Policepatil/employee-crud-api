@@ -92,6 +92,14 @@ class PermissionController extends Controller
     }
 
     /**
+     * Get permissions grouped by CRUD resource for role assignment.
+     */
+    public function groupedOptions()
+    {
+        return $this->permissionRepository->getGroupedOptions();
+    }
+
+    /**
      * Create a new permission record.
      *
      * Validates and creates a new permission with the provided data.
