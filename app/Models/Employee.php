@@ -49,6 +49,11 @@ class Employee extends Model
         'email',
         'phone',
         'designation',
+        'skills',
+        'profile_pic',
+        'date_of_birth',
+        'date_of_joining',
+        'total_years_of_experience',
     ];
 
     /**

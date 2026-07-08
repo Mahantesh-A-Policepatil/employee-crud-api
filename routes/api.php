@@ -9,24 +9,41 @@ use App\Http\Controllers\API\PermissionController;
 use App\Http\Controllers\API\RoleController;
 use App\Http\Controllers\API\UserRoleController;
 use App\Http\Controllers\API\ProjectController;
+use App\Http\Controllers\API\EmployeeDashboardController;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| is assigned the "api" middleware group. Enjoy building your API!
-|
 */
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+/*
+|--------------------------------------------------------------------------
+| Employee Dashboard (Public for Development)
+|--------------------------------------------------------------------------
+|
+| Remove these two routes later and move them inside auth:sanctum
+| once React authentication is integrated.
+|
+*/
+
+Route::get('/employee-dashboard', [EmployeeDashboardController::class, 'index']);
+Route::get('/employee-dashboard/{id}', [EmployeeDashboardController::class, 'show']);
+
 Route::middleware('auth:sanctum')->group(function () {
+
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
     Route::put('/user', [AuthController::class, 'updateUser']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Employees
+    |--------------------------------------------------------------------------
+    */
 
     Route::get('/employees', [EmployeeController::class, 'index'])->middleware('permission:employees.view');
     Route::get('/employees/options', [EmployeeController::class, 'options'])->middleware('permission:projects.create|projects.update');
@@ -36,6 +53,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/employees/{id}', [EmployeeController::class, 'update'])->middleware('permission:employees.update');
     Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->middleware('permission:employees.delete');
 
+    /*
+    |--------------------------------------------------------------------------
+    | Projects
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/projects/options', [ProjectController::class, 'options'])->middleware('permission:projects.view|employees.view');
     Route::get('/projects', [ProjectController::class, 'index'])->middleware('permission:projects.view');
     Route::post('/projects', [ProjectController::class, 'store'])->middleware('permission:projects.create');
@@ -43,12 +66,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/projects/{id}', [ProjectController::class, 'update'])->middleware('permission:projects.update');
     Route::delete('/projects/{id}', [ProjectController::class, 'destroy'])->middleware('permission:projects.delete');
 
+    /*
+    |--------------------------------------------------------------------------
+    | Departments
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/departments/options', [DepartmentController::class, 'options'])->middleware('permission:departments.view|employees.view');
     Route::get('/departments', [DepartmentController::class, 'index'])->middleware('permission:departments.view');
     Route::post('/departments', [DepartmentController::class, 'store'])->middleware('permission:departments.create');
     Route::get('/departments/{id}', [DepartmentController::class, 'show'])->middleware('permission:departments.view');
     Route::put('/departments/{id}', [DepartmentController::class, 'update'])->middleware('permission:departments.update');
     Route::delete('/departments/{id}', [DepartmentController::class, 'destroy'])->middleware('permission:departments.delete');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Permissions
+    |--------------------------------------------------------------------------
+    */
 
     Route::get('/permissions/options', [PermissionController::class, 'options'])->middleware('permission:permissions.view|roles.manage');
     Route::get('/permissions/grouped-options', [PermissionController::class, 'groupedOptions'])->middleware('permission:roles.manage');
@@ -58,11 +93,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/permissions/{id}', [PermissionController::class, 'update'])->middleware('permission:permissions.manage');
     Route::delete('/permissions/{id}', [PermissionController::class, 'destroy'])->middleware('permission:permissions.manage');
 
+    /*
+    |--------------------------------------------------------------------------
+    | Roles
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/roles', [RoleController::class, 'index'])->middleware('permission:roles.view');
     Route::post('/roles', [RoleController::class, 'store'])->middleware('permission:roles.manage');
     Route::get('/roles/{id}', [RoleController::class, 'show'])->middleware('permission:roles.view');
     Route::put('/roles/{id}', [RoleController::class, 'update'])->middleware('permission:roles.manage');
     Route::delete('/roles/{id}', [RoleController::class, 'destroy'])->middleware('permission:roles.manage');
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Roles
+    |--------------------------------------------------------------------------
+    */
 
     Route::get('/user-options', [UserRoleController::class, 'userOptions'])->middleware('permission:roles.manage');
     Route::get('/role-options', [UserRoleController::class, 'roleOptions'])->middleware('permission:roles.manage');
