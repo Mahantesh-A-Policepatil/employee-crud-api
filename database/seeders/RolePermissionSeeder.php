@@ -31,6 +31,10 @@ class RolePermissionSeeder extends Seeder
             'roles.manage',
             'permissions.view',
             'permissions.manage',
+            'attendance.view',
+            'attendance.create',
+            'attendance.update',
+            'attendance.delete',
         ];
 
         foreach ($permissionNames as $permissionName) {

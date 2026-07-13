@@ -10,6 +10,7 @@ use App\Http\Controllers\API\RoleController;
 use App\Http\Controllers\API\UserRoleController;
 use App\Http\Controllers\API\ProjectController;
 use App\Http\Controllers\API\EmployeeDashboardController;
+use App\Http\Controllers\API\AttendanceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -118,4 +119,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user-roles/{id}', [UserRoleController::class, 'show'])->middleware('permission:roles.manage');
     Route::put('/user-roles/{id}', [UserRoleController::class, 'update'])->middleware('permission:roles.manage');
     Route::delete('/user-roles/{id}', [UserRoleController::class, 'destroy'])->middleware('permission:roles.manage');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Attendance
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/attendance', [AttendanceController::class, 'index'])->middleware('permission:attendance.view');
+    Route::post('/attendance', [AttendanceController::class, 'store'])->middleware('permission:attendance.create');
+    Route::get('/attendance/{id}', [AttendanceController::class, 'show'])->middleware('permission:attendance.view');
+    Route::put('/attendance/{id}', [AttendanceController::class, 'update'])->middleware('permission:attendance.update');
+    Route::delete('/attendance/{id}', [AttendanceController::class, 'destroy'])->middleware('permission:attendance.delete');
+    Route::post('/attendance/upload', [AttendanceController::class, 'uploadCsv'])->middleware('permission:attendance.create');
+    Route::get('/attendance/template/download', [AttendanceController::class, 'downloadTemplate'])->middleware('permission:attendance.view');
 });
