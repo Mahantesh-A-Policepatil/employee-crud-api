@@ -13,14 +13,16 @@ class AdminNotificationMail extends Mailable implements ShouldQueue
 
     public $entityType;
     public $entityName;
+    public $action;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(string $entityType, string $entityName)
+    public function __construct(string $entityType, string $entityName, string $action = 'created')
     {
-        $this->entityType = $entityType; // e.g., 'Employee', 'Department'
-        $this->entityName = $entityName; // e.g., 'John Doe', 'HR Department'
+        $this->entityType = $entityType;
+        $this->entityName = $entityName;
+        $this->action = $action;
     }
 
     /**
@@ -30,8 +32,16 @@ class AdminNotificationMail extends Mailable implements ShouldQueue
     {
         $entityType = e($this->entityType);
         $entityName = e($this->entityName);
+        $action = e($this->action);
+        $actionLabel = ucfirst($action);
+        $message = match ($this->action) {
+            'created' => 'A new record has been added successfully.',
+            'updated' => 'An existing record has been updated successfully.',
+            'deleted' => 'A record has been removed successfully.',
+            default => 'A record has been changed successfully.',
+        };
 
-        return $this->subject("New {$this->entityType} Created Notification")
+        return $this->subject("{$actionLabel}: {$this->entityType} notification")
             ->html(
                 <<<HTML
 <!doctype html>
@@ -48,18 +58,20 @@ class AdminNotificationMail extends Mailable implements ShouldQueue
                     <tr>
                         <td style="padding: 28px 36px; background: #1d4ed8; color: #ffffff;">
                             <p style="margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #bfdbfe;">Employee Management</p>
-                            <h1 style="margin: 0; font-size: 26px; line-height: 34px; font-weight: 700; color: #ffffff;">New record created</h1>
+                            <h1 style="margin: 0; font-size: 26px; line-height: 34px; font-weight: 700; color: #ffffff;">{$actionLabel} record</h1>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding: 34px 36px 28px;">
                             <p style="margin: 0 0 16px; font-size: 16px; line-height: 24px; color: #374151;">Hello Admin,</p>
-                            <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #374151;">A new record has been added successfully. Here are the details:</p>
+                            <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #374151;">{$message} Here are the details:</p>
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width: 100%; border: 1px solid #dbeafe; border-radius: 10px; background-color: #eff6ff;">
                                 <tr>
                                     <td style="padding: 18px 20px;">
                                         <p style="margin: 0 0 6px; font-size: 12px; line-height: 18px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #2563eb;">Record type</p>
                                         <p style="margin: 0 0 16px; font-size: 16px; line-height: 22px; font-weight: 700; color: #1e3a8a;">{$entityType}</p>
+                                        <p style="margin: 0 0 6px; font-size: 12px; line-height: 18px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #2563eb;">Action</p>
+                                        <p style="margin: 0 0 16px; font-size: 16px; line-height: 22px; font-weight: 700; color: #1e3a8a;">{$actionLabel}</p>
                                         <p style="margin: 0 0 6px; font-size: 12px; line-height: 18px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #2563eb;">Name</p>
                                         <p style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 700; color: #1e3a8a;">{$entityName}</p>
                                     </td>
