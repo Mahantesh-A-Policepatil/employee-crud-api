@@ -128,9 +128,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/attendance', [AttendanceController::class, 'index'])->middleware('permission:attendance.view');
     Route::post('/attendance', [AttendanceController::class, 'store'])->middleware('permission:attendance.create');
+    Route::post('/attendance/upload', [AttendanceController::class, 'uploadCsv'])->middleware('permission:attendance.create');
+    Route::get('/attendance/template/download', [AttendanceController::class, 'downloadTemplate'])->middleware('permission:attendance.view');
     Route::get('/attendance/{id}', [AttendanceController::class, 'show'])->middleware('permission:attendance.view');
     Route::put('/attendance/{id}', [AttendanceController::class, 'update'])->middleware('permission:attendance.update');
     Route::delete('/attendance/{id}', [AttendanceController::class, 'destroy'])->middleware('permission:attendance.delete');
-    Route::post('/attendance/upload', [AttendanceController::class, 'uploadCsv'])->middleware('permission:attendance.create');
-    Route::get('/attendance/template/download', [AttendanceController::class, 'downloadTemplate'])->middleware('permission:attendance.view');
 });

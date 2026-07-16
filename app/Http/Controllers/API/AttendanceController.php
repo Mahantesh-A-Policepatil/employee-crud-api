@@ -9,6 +9,7 @@ use App\Repositories\AttendanceRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Requests\UploadAttendanceCsvRequest;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * AttendanceController
@@ -148,7 +149,9 @@ class AttendanceController extends Controller
     public function uploadCsv(UploadAttendanceCsvRequest $request): JsonResponse
     {
         $result = $this->attendanceRepository->uploadCsv(
-            $request->file('file')
+            $request->file('file'),
+            $request->integer('attendance_month'),
+            $request->integer('attendance_year')
         );
 
         return response()->json([
@@ -157,6 +160,37 @@ class AttendanceController extends Controller
             'imported' => $result['imported'],
             'skipped' => $result['skipped'],
             'errors' => $result['errors'],
+        ]);
+    }
+
+    /**
+     * Download the CSV structure accepted by the attendance importer.
+     */
+    public function downloadTemplate(): StreamedResponse
+    {
+        return response()->streamDownload(function (): void {
+            $output = fopen('php://output', 'w');
+
+            fputcsv($output, [
+                'Employee Email',
+                'Working Days',
+                'Present Days',
+                'Leave Days',
+                'LOP Days',
+                'Remarks',
+            ]);
+            fputcsv($output, [
+                'employee@example.com',
+                22,
+                20,
+                1,
+                1,
+                'Optional note',
+            ]);
+
+            fclose($output);
+        }, 'attendance_template.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 }
