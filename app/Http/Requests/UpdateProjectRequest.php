@@ -23,7 +23,7 @@ class UpdateProjectRequest extends FormRequest
                 Rule::unique('projects', 'name')->ignore($this->route('id')),
             ],
             'description' => 'nullable|string|max:500',
-            'employee_ids' => 'array',
+            'employee_ids' => 'required|array|min:1',
             'employee_ids.*' => 'integer|distinct|exists:employees,id',
         ];
     }
