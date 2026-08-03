@@ -100,6 +100,9 @@ class PermissionRepository extends BaseRepository
         return $this->query()
             ->orderBy('name')
             ->pluck('name')
+            // `*.view` was the legacy name for the canonical `*.read`
+            // permission. Do not expose both as separate "Read" choices.
+            ->reject(fn ($name) => Str::endsWith($name, '.view'))
             ->groupBy(fn ($name) => Str::before($name, '.'))
             ->map(function ($permissions, $resource) use ($actionLabels, $actionOrder) {
                 return [

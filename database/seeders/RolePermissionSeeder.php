@@ -15,23 +15,23 @@ class RolePermissionSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $permissionNames = [
-            'employees.view',
+            'employees.read',
             'employees.create',
             'employees.update',
             'employees.delete',
-            'departments.view',
+            'departments.read',
             'departments.create',
             'departments.update',
             'departments.delete',
-            'projects.view',
+            'projects.read',
             'projects.create',
             'projects.update',
             'projects.delete',
-            'roles.view',
-            'roles.manage',
-            'permissions.view',
-            'permissions.manage',
-            'attendance.view',
+            'roles.read',
+            'roles.create',
+            'roles.update',
+            'roles.delete',
+            'attendance.read',
             'attendance.create',
             'attendance.update',
             'attendance.delete',
@@ -56,8 +56,8 @@ class RolePermissionSeeder extends Seeder
 
         $admin->syncPermissions(Permission::all());
         $nonAdmin->syncPermissions([
-            'employees.view',
-            'departments.view',
+            'employees.read',
+            'departments.read',
         ]);
 
         $firstUser = User::orderBy('id')->first();
