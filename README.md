@@ -7,6 +7,119 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+# Employee CRUD API
+
+Laravel API for the Employee CRUD React application. It uses Laravel Sanctum,
+Spatie Laravel Permission, queued jobs, and database seeders.
+
+## Initial setup
+
+```bash
+composer install
+copy .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+php artisan migrate:fresh --seed
+php artisan serve
+```
+
+> `php artisan migrate:fresh --seed` drops every database table before recreating
+> the schema and seed data. Use it only when resetting local development data.
+
+Configure the database and queue connection in `.env` before running migrations.
+
+## Queue worker
+
+Start a queue worker whenever the application is running. Attendance imports and
+other queued work will not be processed until this command is running:
+
+```bash
+php artisan queue:work
+```
+
+For local development, restart the worker after changing job code:
+
+```bash
+php artisan queue:restart
+php artisan queue:work
+```
+
+## Artisan generation reference
+
+### Models and migrations
+
+```bash
+php artisan make:model Employee -m
+php artisan make:model Department -m
+php artisan make:model Project -m
+php artisan make:model Attendance -m
+php artisan make:model NavigationItem -m
+```
+
+`User` is Laravel's default model, generated with the Laravel application.
+
+### API controllers
+
+```bash
+php artisan make:controller API/AuthController
+php artisan make:controller API/EmployeeController --api
+php artisan make:controller API/DepartmentController --api
+php artisan make:controller API/ProjectController --api
+php artisan make:controller API/AttendanceController --api
+php artisan make:controller API/PermissionController --api
+php artisan make:controller API/RoleController --api
+php artisan make:controller API/UserRoleController --api
+php artisan make:controller API/EmployeeDashboardController --api
+php artisan make:controller API/NavigationItemController --api
+```
+
+### Form requests
+
+```bash
+php artisan make:request LoginRequest
+php artisan make:request RegisterRequest
+php artisan make:request StoreEmployeeRequest
+php artisan make:request UpdateEmployeeRequest
+php artisan make:request StoreDepartmentRequest
+php artisan make:request UpdateDepartmentRequest
+php artisan make:request StoreProjectRequest
+php artisan make:request UpdateProjectRequest
+php artisan make:request StoreAttendanceRequest
+php artisan make:request UpdateAttendanceRequest
+php artisan make:request UploadAttendanceCsvRequest
+php artisan make:request StorePermissionRequest
+php artisan make:request UpdatePermissionRequest
+php artisan make:request StoreRoleRequest
+php artisan make:request UpdateRoleRequest
+php artisan make:request StoreUserRoleRequest
+php artisan make:request UpdateUserRoleRequest
+php artisan make:request UpdateUserRequest
+```
+
+### Seeders and permissions
+
+```bash
+php artisan make:seeder RolePermissionSeeder
+php artisan make:seeder NavigationPermissionSeeder
+php artisan make:seeder EmployeeSeeder
+php artisan make:seeder ProjectSeeder
+php artisan db:seed --class=RolePermissionSeeder
+php artisan db:seed --class=NavigationPermissionSeeder
+```
+
+`NavigationPermissionSeeder` is the source of truth for left navigation items.
+Add a module's `key`, `label`, `path`, `icon`, and `sort_order` to that seeder.
+When it runs, it creates the navigation item and matching `create`, `read`,
+`update`, and `delete` permissions. Admin receives every available permission.
+
+### Useful checks
+
+```bash
+php artisan route:list
+php artisan migrate:status
+php artisan optimize:clear
+```
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
