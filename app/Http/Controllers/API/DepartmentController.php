@@ -153,7 +153,7 @@ class DepartmentController extends Controller
      */
     public function destroy($id): JsonResponse
     {
-        $this->departmentRepository->delete($id);
+        $this->departmentRepository->deleteWithEmployeesDetached($id);
 
         return response()->json(['message' => 'Deleted']);
     }

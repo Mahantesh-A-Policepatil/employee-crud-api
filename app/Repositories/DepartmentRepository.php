@@ -146,6 +146,25 @@ class DepartmentRepository extends BaseRepository
         return $department;
     }
 
+    /**
+     * Delete a department while preserving its employees.
+     *
+     * Employees previously assigned to the department remain in the system
+     * with no department assignment after the deletion.
+     */
+    public function deleteWithEmployeesDetached($id): bool
+    {
+        return DB::transaction(function () use ($id) {
+            /** @var Department $department */
+            $department = $this->findOrFail($id);
+
+            Employee::where('department_id', $department->id)
+                ->update(['department_id' => null]);
+
+            return (bool) $department->delete();
+        });
+    }
+
     private function syncEmployees(Department $department, array $employeeIds): void
     {
         Employee::where('department_id', $department->id)

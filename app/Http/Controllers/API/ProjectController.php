@@ -60,7 +60,7 @@ class ProjectController extends Controller
 
     public function destroy($id): JsonResponse
     {
-        $this->projectRepository->delete($id);
+        $this->projectRepository->deleteWithEmployeesDetached($id);
 
         return response()->json(['message' => 'Deleted']);
     }

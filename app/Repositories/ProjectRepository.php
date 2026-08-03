@@ -100,6 +100,25 @@ class ProjectRepository extends BaseRepository
         return $project;
     }
 
+    /**
+     * Delete a project while preserving its employees.
+     *
+     * Employees previously assigned to the project remain in the system
+     * with no project assignment after the deletion.
+     */
+    public function deleteWithEmployeesDetached($id): bool
+    {
+        return DB::transaction(function () use ($id) {
+            /** @var Project $project */
+            $project = $this->findOrFail($id);
+
+            Employee::where('project_id', $project->id)
+                ->update(['project_id' => null]);
+
+            return (bool) $project->delete();
+        });
+    }
+
     private function syncEmployees(Project $project, array $employeeIds): void
     {
         Employee::where('project_id', $project->id)
